@@ -4,6 +4,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.stream.JsonReader;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.minecraft.command.CommandSource;
@@ -39,7 +40,10 @@ public class Aliases implements DedicatedServerModInitializer {
                     .suggests((ctx, builder) -> CommandSource.suggestMatching(ctx.getSource().getPlayerNames(), builder))
                     .executes(Aliases::fetchUsernameHistory);
             
-            var aliasesCommand = literal("aliases").then(stringArg).build();
+            var aliasesCommand = literal("aliases")
+                    .requires(Permissions.require("aliases.use", true))
+                    .then(stringArg).build();
+            
             dispatcher.getRoot().addChild(aliasesCommand);
         });
     }
