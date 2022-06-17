@@ -6,13 +6,13 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.fabricmc.api.DedicatedServerModInitializer;
-import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.command.CommandSource;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.HoverEvent;
-import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
+import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.io.ByteArrayInputStream;
@@ -35,7 +35,7 @@ public class Aliases implements DedicatedServerModInitializer {
     
     @Override
     public void onInitializeServer() {
-        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             var stringArg = argument("username", StringArgumentType.string())
                     .suggests((ctx, builder) -> CommandSource.suggestMatching(ctx.getSource().getPlayerNames(), builder))
                     .executes(Aliases::fetchUsernameHistory);
@@ -64,9 +64,9 @@ public class Aliases implements DedicatedServerModInitializer {
             var historyResponse = httpClient.sendAsync(historyRequest, HttpResponse.BodyHandlers.ofByteArray()).join();
             message = parseUsernameHistory(historyResponse.body());
         } else if (uuidResponse.statusCode() == 204) {
-            message = new LiteralText("Invalid username").formatted(Formatting.RED);
+            message = Text.literal("Invalid username").formatted(Formatting.RED);
         } else {
-            message = new LiteralText("Could not fetch username history; HTTP " + uuidResponse.statusCode()).formatted(Formatting.DARK_RED);
+            message = Text.literal("Could not fetch username history; HTTP " + uuidResponse.statusCode()).formatted(Formatting.DARK_RED);
         }
         
         ctx.getSource().sendFeedback(message, false);
@@ -110,21 +110,21 @@ public class Aliases implements DedicatedServerModInitializer {
                 jsonReader.nextName();
                 
                 var username = jsonReader.nextString();
-                var formattedUsername = new LiteralText(username);
+                var formattedUsername = Text.literal(username);
                 
                 if (jsonReader.hasNext()) {
                     jsonReader.nextName();
                     
                     var unixTimestamp = jsonReader.nextLong();
                     var stringTimestamp = dateFormatter.format(new Date(unixTimestamp));
-                    var formattedTimestamp = new LiteralText(stringTimestamp).formatted(Formatting.DARK_PURPLE);
+                    var formattedTimestamp = Text.literal(stringTimestamp).formatted(Formatting.DARK_PURPLE);
                     var timestampHover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, formattedTimestamp);
                     
                     formattedUsername.setStyle(Style.EMPTY.withHoverEvent(timestampHover));
                     formattedUsername.formatted(Formatting.WHITE);
                     
                 } else {
-                    var originalText = new LiteralText("Original username").formatted(Formatting.GRAY);
+                    var originalText = Text.literal("Original username").formatted(Formatting.GRAY);
                     var originalTooltip = new HoverEvent(HoverEvent.Action.SHOW_TEXT, originalText);
                     
                     formattedUsername.setStyle(Style.EMPTY.withHoverEvent(originalTooltip));
@@ -139,17 +139,17 @@ public class Aliases implements DedicatedServerModInitializer {
             jsonReader.close();
         } catch (Exception e) {
             e.printStackTrace();
-            return new LiteralText("Something went wrong while parsing username history").formatted(Formatting.DARK_RED, Formatting.BOLD);
+            return Text.literal("Something went wrong while parsing username history").formatted(Formatting.DARK_RED, Formatting.BOLD);
         }
         
         Collections.reverse(usernames);
         var currentUsername = usernames.remove(0);
         
-        var separatorLength = 18 + currentUsername.asString().length();
+        var separatorLength = 18 + currentUsername.getString().length();
         var separatorString = new String(new char[separatorLength]).replace('\u0000', '-');
-        var separator = new LiteralText("\n" + separatorString + "\n").formatted(Formatting.YELLOW);
+        var separator = Text.literal("\n" + separatorString + "\n").formatted(Formatting.YELLOW);
         
-        var historyMessage = new LiteralText("Username history for ").formatted(Formatting.WHITE)
+        var historyMessage = Text.literal("Username history for ").formatted(Formatting.WHITE)
                 .append(currentUsername.formatted(Formatting.GOLD))
                 .append(separator);
         
@@ -158,7 +158,7 @@ public class Aliases implements DedicatedServerModInitializer {
                 historyMessage.append(username).append("\n");
             }
         } else {
-            historyMessage.append(new LiteralText("No previous usernames").formatted(Formatting.DARK_GRAY));
+            historyMessage.append(Text.literal("No previous usernames").formatted(Formatting.DARK_GRAY));
         }
         
         return historyMessage;
