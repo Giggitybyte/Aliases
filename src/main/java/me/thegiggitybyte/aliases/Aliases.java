@@ -52,24 +52,26 @@ public class Aliases implements DedicatedServerModInitializer {
         var username = StringArgumentType.getString(ctx, "username");
         var uuidUri = URI.create("https://api.mojang.com/users/profiles/minecraft/" + username);
         var uuidRequest = HttpRequest.newBuilder(uuidUri).GET().build();
-        
-        var uuidResponse = httpClient.sendAsync(uuidRequest, HttpResponse.BodyHandlers.ofByteArray()).join();
-        MutableText message;
-        
-        if (uuidResponse.statusCode() == 200) {
-            var uuid = parsePlayerUuid(uuidResponse.body());
-            var historyUri = URI.create("https://api.mojang.com/user/profiles/" + uuid + "/names");
-            var historyRequest = HttpRequest.newBuilder(historyUri).GET().build();
+    
+        httpClient.sendAsync(uuidRequest, HttpResponse.BodyHandlers.ofByteArray()).thenAcceptAsync(response -> {
+            MutableText message;
             
-            var historyResponse = httpClient.sendAsync(historyRequest, HttpResponse.BodyHandlers.ofByteArray()).join();
-            message = parseUsernameHistory(historyResponse.body());
-        } else if (uuidResponse.statusCode() == 204) {
-            message = Text.literal("Invalid username").formatted(Formatting.RED);
-        } else {
-            message = Text.literal("Could not fetch username history; HTTP " + uuidResponse.statusCode()).formatted(Formatting.DARK_RED);
-        }
+            if (response.statusCode() == 200) {
+                var uuid = parsePlayerUuid(response.body());
+                var historyUri = URI.create("https://api.mojang.com/user/profiles/" + uuid + "/names");
+                var historyRequest = HttpRequest.newBuilder(historyUri).GET().build();
+                var historyResponse = httpClient.sendAsync(historyRequest, HttpResponse.BodyHandlers.ofByteArray()).join();
+                
+                message = parseUsernameHistory(historyResponse.body());
+            } else if (response.statusCode() == 204) {
+                message = Text.literal("Invalid username").formatted(Formatting.RED);
+            } else {
+                message = Text.literal("Could not fetch username history; HTTP " + response.statusCode()).formatted(Formatting.DARK_RED);
+            }
+    
+            ctx.getSource().sendFeedback(message, false);
+        });
         
-        ctx.getSource().sendFeedback(message, false);
         return 1;
     }
     
